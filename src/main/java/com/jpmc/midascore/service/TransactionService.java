@@ -9,6 +9,7 @@ import com.jpmc.midascore.repository.TransactionRepository;
 import com.jpmc.midascore.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -76,8 +77,16 @@ public class TransactionService {
         // 事务外：调用外部激励服务
         BigDecimal incentive = incentiveService.getIncentive(transaction).orElse(ZERO);
 
-        TransactionOutcome outcome = transactionTemplate.execute(
-                status -> apply(transaction, txId, amount, incentive));
+        TransactionOutcome outcome;
+        try {
+            outcome = transactionTemplate.execute(status -> apply(transaction, txId, amount, incentive));
+        } catch (DataIntegrityViolationException e) {
+            // 并发窗口：两个线程同时通过了 existsByTxId 预检，唯一约束是最后一道防线。
+            // 后到的那个事务整体回滚（扣款/入账一起撤销），这里转成 DUPLICATE 返回，
+            // 而不是把异常抛给 Kafka 监听器触发无意义的重试和一片错误日志。
+            log.warn("并发重复交易被唯一约束拦截，按重复处理: txId={}", txId);
+            return TransactionOutcome.DUPLICATE;
+        }
         if (outcome == null) {
             throw new IllegalStateException("交易处理回调返回 null: txId=" + txId);
         }
