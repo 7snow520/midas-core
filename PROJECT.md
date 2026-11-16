@@ -37,7 +37,7 @@
 - 用户不存在返回 404，避免与「余额为 0」混淆；非法参数返回 400 ProblemDetail
 
 ### 5. 自动化测试
-- 12 个自动化测试：9 个业务断言（TransactionServiceTest）+ 3 个嵌入式 Kafka 端到端（KafkaEndToEndTest）
+- 14 个自动化测试：9 个业务断言（TransactionServiceTest）+ 3 个嵌入式 Kafka 端到端（KafkaEndToEndTest）+ 2 个并发（ConcurrentTransferTest）
 - 原课程提供的 Task*Tests 为无断言的闯关验证器，默认排除，用 -Pforage-verifier 单独执行
 
 ## 架构设计原则

@@ -6,6 +6,8 @@
 
 本项目最初是 JPMC Software Engineering Virtual Experience（Forage）的模拟后端项目，随后按真实金融系统的要求做了工程加固：金额精度、并发扣款、消息幂等、失败可审计、异常隔离。
 
+版本与每次改动的原因见 [`CHANGELOG.md`](CHANGELOG.md)。
+
 链路：Kafka 消费交易消息 → 校验（金额/账户/余额）→ 原子扣款 → 调用激励 API → 入账 → 落库流水 → REST 查询余额。
 
 ## 技术栈
@@ -70,6 +72,12 @@ spring.json.use.type.headers: false
 ```
 
 端到端测试 `poisonMessageDoesNotBlockPartition` 专门守这条：投一条彻底无法解析的坏消息后，后续正常消息必须仍能入账，坏消息进 `transactions.DLT`。
+
+### 10. 并发与重复的边界情况
+两个并发窗口值得单独说：
+
+- **抢余额**：`UPDATE ... WHERE balance >= :amount` 由数据库行锁串行化，30 个并发请求抢 100 元、每笔 10 元，恰好 10 笔成功、20 笔余额不足，账实相等（`ConcurrentTransferTest`）；
+- **重复投递**：`existsByTxId` 只是快速路径，真正兜底的是表上的唯一约束。两个线程同时通过预检时，后到的那个会在插入时撞上约束、整笔事务回滚，异常不能直接抛给监听器（那会触发无意义重试），所以在事务边界外捕获 `DataIntegrityViolationException` 并转成 `DUPLICATE`。
 
 ## 项目结构
 
@@ -138,12 +146,13 @@ mvn test -Dtest=KafkaEndToEndTest -Dincentive.base-url=http://localhost:18081/in
 ## 测试
 
 ```bash
-mvn test                     # 12 个测试：9 个业务断言 + 3 个嵌入式 Kafka 端到端
+mvn test                     # 14 个测试：9 业务断言 + 3 嵌入式 Kafka 端到端 + 2 并发
 mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印结果，无断言）
 ```
 
 - `TransactionServiceTest`（9 个）：成功路径 + 余额不足 / 账户不存在 / 自己转自己 / 重复 txId / 激励服务不可用 / 两位小数尾差 / 超 4 位小数；
-- `KafkaEndToEndTest`（3 个）：`@EmbeddedKafka` 起真实 broker（不是 mock），验证消息真的被消费并落库、外部裸 JSON 可消费、坏消息不阻塞分区。激励服务用 `@MockBean` 替换，保证 CI 可离线运行。
+- `KafkaEndToEndTest`（3 个）：`@EmbeddedKafka` 起真实 broker（不是 mock），验证消息真的被消费并落库、外部裸 JSON 可消费、坏消息不阻塞分区。激励服务用 `@MockBean` 替换，保证 CI 可离线运行；
+- `ConcurrentTransferTest`（2 个）：30 线程抢同一账户（只成功 10 笔、账实相等），10 线程投同一个 `txId`（只入账一次，其余返回 `DUPLICATE`）。
 
 `TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建，需要时用 `-Pforage-verifier` 单独跑。
 
