@@ -6,7 +6,7 @@
 
 本项目最初是 JPMC Software Engineering Virtual Experience（Forage）的模拟后端项目，随后按真实金融系统的要求做了工程加固：金额精度、并发扣款、消息幂等、失败可审计、异常隔离。
 
-版本与每次改动的原因见 [`CHANGELOG.md`](CHANGELOG.md)。
+改了什么、为什么改，见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 链路：Kafka 消费交易消息 → 校验（金额/账户/余额）→ 原子扣款 → 调用激励 API → 入账 → 落库流水 → REST 查询余额。
 
@@ -155,6 +155,12 @@ mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印
 - `ConcurrentTransferTest`（2 个）：30 线程抢同一账户（只成功 10 笔、账实相等），10 线程投同一个 `txId`（只入账一次，其余返回 `DUPLICATE`）。
 
 `TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建，需要时用 `-Pforage-verifier` 单独跑。
+
+## 关于这个仓库
+
+2026-07 的课程版是我本人独立完成的。2026-11 我在原代码上做了一轮工程加固，逐项原因写在 `CHANGELOG.md`。
+第二轮的改动由 AI 助手协助生成，改什么、不改什么、怎么验证由我决定，且都在本机实跑过：
+`mvn verify` 14 个测试、真实 PostgreSQL 14、`@EmbeddedKafka` 真实 broker。
 
 ## 已知限制
 
