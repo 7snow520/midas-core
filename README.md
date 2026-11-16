@@ -57,6 +57,20 @@ Kafka 是「至少一次」投递，同一条消息可能被重复消费。每�
 ### 8. Kafka 消费有死信兜底
 `DefaultErrorHandler` + `DeadLetterPublishingRecoverer`：重试 2 次（1s 间隔）仍失败则投递到 `transactions.DLT`，防止一条毒消息堵死分区。业务校验失败不走异常路径，只在日志里记录结果，避免无意义重试。
 
+### 9. 反序列化必须「可失败」
+这是真实跑起来才暴露的问题：`JsonDeserializer` 默认依赖消息头里的 `__TypeId__` 才能确定目标类型，而外部系统（上游业务方、控制台工具）通常只发裸 JSON。此时抛的是 `SerializationException`——`DefaultErrorHandler` 处理不了它，会在同一条消息上**无限重试，分区彻底卡死，死信也兜不住**。
+
+现在的配置是三层保险：
+
+```yaml
+value-deserializer: ErrorHandlingDeserializer          # 把反序列化异常包装成可处理异常
+spring.deserializer.value.delegate.class: JsonDeserializer
+spring.json.value.default.type: Transaction            # 没有 __TypeId__ 头也能解析
+spring.json.use.type.headers: false
+```
+
+端到端测试 `poisonMessageDoesNotBlockPartition` 专门守这条：投一条彻底无法解析的坏消息后，后续正常消息必须仍能入账，坏消息进 `transactions.DLT`。
+
 ## 项目结构
 
 ```
@@ -99,6 +113,15 @@ mvn spring-boot:run
 
 查询余额：`curl "http://localhost:33400/balance?userId=1"`，用户不存在返回 404（而不是余额 0）。
 
+### 手工跑真链路（真实 Kafka + 真实激励服务）
+
+自动化测试里的激励服务是 mock 的。要验证真实 HTTP 链路，把激励服务单独起在另一个端口（本机 8080 常被占用）：
+
+```bash
+java -jar services/transaction-incentive-api.jar --server.port=18081
+mvn test -Dtest=KafkaEndToEndTest -Dincentive.base-url=http://localhost:18081/incentive
+```
+
 ## 配置
 
 | 环境变量 | 默认值 | 说明 |
@@ -110,12 +133,17 @@ mvn spring-boot:run
 | `SERVER_PORT` | `33400` | HTTP 端口 |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | - | `prod` 环境数据库 |
 
+配置文件位于 `src/main/resources/application*.yml`，随 jar 一起打包——不要放在仓库根目录，那样只有「从仓库根目录启动」时才读得到，换目录或进容器就丢配置。
+
 ## 测试
 
 ```bash
-mvn test                 # 断言式测试，9 个用例覆盖成功与全部拒绝路径
+mvn test                     # 12 个测试：9 个业务断言 + 3 个嵌入式 Kafka 端到端
 mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印结果，无断言）
 ```
+
+- `TransactionServiceTest`（9 个）：成功路径 + 余额不足 / 账户不存在 / 自己转自己 / 重复 txId / 激励服务不可用 / 两位小数尾差 / 超 4 位小数；
+- `KafkaEndToEndTest`（3 个）：`@EmbeddedKafka` 起真实 broker（不是 mock），验证消息真的被消费并落库、外部裸 JSON 可消费、坏消息不阻塞分区。激励服务用 `@MockBean` 替换，保证 CI 可离线运行。
 
 `TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建，需要时用 `-Pforage-verifier` 单独跑。
 
