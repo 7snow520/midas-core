@@ -2,22 +2,24 @@ package com.jpmc.midascore.foundation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.math.BigDecimal;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Incentive {
-    private float amount;
+    private BigDecimal amount;
 
     public Incentive() {
     }
 
-    public Incentive(float amount) {
+    public Incentive(BigDecimal amount) {
         this.amount = amount;
     }
 
-    public float getAmount() {
+    public BigDecimal getAmount() {
         return amount;
     }
 
-    public void setAmount(float amount) {
+    public void setAmount(BigDecimal amount) {
         this.amount = amount;
     }
 

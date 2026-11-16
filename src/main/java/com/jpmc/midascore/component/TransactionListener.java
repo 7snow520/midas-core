@@ -1,24 +1,26 @@
 package com.jpmc.midascore.component;
 
 import com.jpmc.midascore.foundation.Transaction;
+import com.jpmc.midascore.service.TransactionOutcome;
+import com.jpmc.midascore.service.TransactionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TransactionListener {
+    private static final Logger log = LoggerFactory.getLogger(TransactionListener.class);
 
-    private final DatabaseConduit databaseConduit;
+    private final TransactionService transactionService;
 
-    public TransactionListener(DatabaseConduit databaseConduit) {
-        this.databaseConduit = databaseConduit;
+    public TransactionListener(TransactionService transactionService) {
+        this.transactionService = transactionService;
     }
 
-    @KafkaListener(topics = "${general.kafka-topic}")
+    @KafkaListener(topics = "${app.kafka-topic}")
     public void listen(Transaction transaction) {
-        databaseConduit.processTransaction(
-                transaction.getSenderId(),
-                transaction.getRecipientId(),
-                transaction.getAmount()
-        );
+        TransactionOutcome outcome = transactionService.processTransaction(transaction);
+        log.info("交易处理完成: txId={}, outcome={}", transaction.getTxId(), outcome);
     }
 }

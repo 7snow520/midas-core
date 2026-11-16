@@ -1,16 +1,28 @@
-general:
-  kafka-topic: transactions
-
 server:
-  port: 33400
+  port: ${SERVER_PORT:33400}
+
+app:
+  kafka-topic: ${KAFKA_TOPIC:transactions}
+
+incentive:
+  # 外部激励服务的地址与超时（毫秒）
+  base-url: ${INCENTIVE_BASE_URL:http://localhost:8080/incentive}
+  connect-timeout-ms: ${INCENTIVE_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${INCENTIVE_READ_TIMEOUT_MS:3000}
 
 spring:
+  application:
+    name: midas-core
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
   kafka:
-    topic: transactions
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: midas-core-group
       auto-offset-reset: earliest
+      enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -18,12 +30,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-  datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    database-platform: org.hibernate.dialect.H2Dialect
+      acks: all
+      properties:
+        enable.idempotence: true
+    listener:
+      ack-mode: record
