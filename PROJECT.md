@@ -21,29 +21,33 @@
 - 使用嵌入式 Kafka 进行集成测试
 
 ### 2. 数据库设计（JPA + H2）
-- UserRecord：用户实体，包含 id、name、balance
-- TransactionRecord：交易实体，通过 @ManyToOne 关联用户
-- H2 内存数据库简化本地开发
+- UserRecord：用户实体，包含 id、name、balance（BigDecimal，NUMERIC(19,4)）
+- TransactionRecord：交易流水，包含 txId（唯一约束）、senderId/recipientId（原始 id）、
+  amount、incentive、status、fail_reason、created_at。成功与失败的交易都落库，
+  因此不使用 @ManyToOne 外键关联（被拒交易的用户可能不存在）
+- dev 环境用 H2 内存库，prod 环境用 PostgreSQL + Flyway 迁移脚本
 
 ### 3. 外部 API 集成（RestTemplate）
-- 调用激励 API 获取交易奖励金额
-- 容错设计：超时控制 + try-catch
-- 激励只加给收款方
+- 调用激励 API 获取交易奖励金额，地址与超时全部外部化配置
+- 容错设计：连接/读取超时 + 返回 Optional 区分「0 激励」与「调用失败」
+- 激励只加给收款方，调用失败不阻断主链路
 
 ### 4. REST API 开发
 - GET /balance?userId={id} 查询用户余额
-- 返回 JSON 格式的 Balance 对象
+- 用户不存在返回 404，避免与「余额为 0」混淆；非法参数返回 400 ProblemDetail
 
 ### 5. 自动化测试
-- 5 个集成测试覆盖完整业务链路
-- 使用嵌入式 Kafka 模拟消息队列
+- 9 个断言式测试覆盖成功路径与全部拒绝路径（TransactionServiceTest）
+- 原课程提供的 Task*Tests 为无断言的闯关验证器，默认排除，用 -Pforage-verifier 单独执行
 
 ## 架构设计原则
 
-- 分层架构：Controller → Component → Repository → Entity
+- 分层架构：Controller → Service → Repository → Entity
 - 单一职责：每个类只做一件事
 - 依赖注入：构造器注入
 - 面向接口：Repository 接口使数据库切换零成本
+- 交易处理以服务方法为事务边界：扣款、入账、写流水同事务
+- 幂等：txId 去重 + 唯一约束；并发安全：数据库原子 UPDATE 代替读-改-写
 
 ## 运行说明
 
