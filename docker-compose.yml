@@ -1,6 +1,8 @@
-# 一键拉起完整环境：Kafka + 激励服务 + 应用
+# 一键拉起完整环境：Kafka + PostgreSQL + 激励服务 + 应用
 #   先打包本应用：mvn -DskipTests package
 #   再启动：      docker compose up --build
+# 说明：应用跑 prod profile（PostgreSQL + Flyway），重启不会丢数据。
+#      本机开发想用内存库时不必走 compose，直接 `mvn spring-boot:run`（默认 dev = H2）。
 services:
   kafka:
     image: bitnami/kafka:3.7
@@ -17,6 +19,22 @@ services:
     ports:
       - "9092:9092"
 
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: midas
+      POSTGRES_USER: midas
+      POSTGRES_PASSWORD: midas
+    ports:
+      - "5432:5432"
+    volumes:
+      - midas-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U midas -d midas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   incentive-api:
     image: eclipse-temurin:17-jre
     command: ["java", "-jar", "/app/transaction-incentive-api.jar"]
@@ -28,11 +46,21 @@ services:
   midas-core:
     build: .
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/midas
+      DB_USERNAME: midas
+      DB_PASSWORD: midas
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INCENTIVE_BASE_URL: http://incentive-api:8080/incentive
     depends_on:
-      - kafka
-      - incentive-api
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      incentive-api:
+        condition: service_started
     ports:
       - "33400:33400"
+
+volumes:
+  midas-pg:
