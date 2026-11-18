@@ -10,6 +10,8 @@
 
 第三轮自查。每条都是先在本机复现出来，再改。
 
+这一版的代码改动同样由 AI 助手协助生成：自查列出的问题、修复方案和验证方式我逐条确认后才落地，最终在本机实跑 `mvn verify` 21 个测试。逐项依据写在 README 的「关于这个仓库」。
+
 ### Fixed
 - 入账那一步命中 0 行没人管：扣款成功、入账落空，事务照样提交。现在直接抛异常、整笔回滚——宁可这笔报错，也不能让钱凭空消失。
 - 重复投递的「被拒交易」会抛异常。查重原先排在业务校验之后，重投的非法消息在写 `FAILED` 流水时又撞唯一约束，被 Kafka 当成处理失败去重试。现在查重提到最前面，写失败流水这一步也接住重复。
@@ -22,7 +24,7 @@
 - `docker compose` 拉起的应用改用 prod profile + PostgreSQL（原先 dev/H2，重启就是空库），加了 healthcheck 和 volume。
 
 ### Removed
-- `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io 读文件；改用 JDK 自带 API，顺手把这个重依赖删掉。
+- `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io；改用 JDK 自带 API，顺手把这个重依赖删掉。
 
 ### 验证
 21 个测试（16 业务 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
