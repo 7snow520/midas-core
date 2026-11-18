@@ -7,6 +7,7 @@ public enum TransactionOutcome {
     SUCCESS,
     DUPLICATE,
     INVALID_AMOUNT,
+    INVALID_TX_ID,
     SENDER_AND_RECIPIENT_SAME,
     SENDER_NOT_FOUND,
     RECIPIENT_NOT_FOUND,
