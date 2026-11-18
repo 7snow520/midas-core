@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * /balance 的接口契约测试：200 有余额、404 查无此人、400 参数不合法且必须是 ProblemDetail 格式。
+ * /balance 的接口契约测试：200 有余额、404 查无此人、400 参数不合法，失败分支统一 ProblemDetail。
  * 只加载 Web 层，Repository 用 mock，不碰数据库。
  */
 @WebMvcTest(BalanceController.class)
@@ -44,12 +44,14 @@ class BalanceControllerTest {
     }
 
     @Test
-    @DisplayName("用户不存在：返回 404，而不是余额 0")
+    @DisplayName("用户不存在：返回 404 + ProblemDetail，而不是余额 0")
     void returnsNotFoundForUnknownUser() throws Exception {
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/balance").param("userId", "9999"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("用户不存在"))
+                .andExpect(jsonPath("$.detail").value("用户 9999 不存在"));
     }
 
     @Test
