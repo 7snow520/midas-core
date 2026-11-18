@@ -23,13 +23,14 @@
 - `/balance` 查无此人原来只返回 404 空响应体，现在补上 ProblemDetail（detail 写明哪个 userId），和 400 用同一套错误格式。
 - 激励金额超过 4 位小数按 0 处理（原来是悄悄四舍五入）。主链路对精度零容忍、激励侧容忍，等于同一套金额规则两种标准。
 - 金额精度常量收敛到 `Money`，业务判定、实体映射、数据库列用同一个值。
+- `/balance` 的 id 校验收敛：不再对「非正数」单开一条 400，能解析成数字但查不到（含 0、负数）统一 404——少一个特例，调用方少一种错误要处理。
 - `docker compose` 拉起的应用改用 prod profile + PostgreSQL（原先 dev/H2，重启就是空库），加了 healthcheck 和 volume。
 
 ### Removed
 - `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io 读文件；改用 JDK 自带 API，顺手把这个重依赖删掉。
 
 ### 验证
-26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体）、400（非数字 / 非正数 / 缺参数）行为均符合预期。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
+26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体，`userId=0` 同）、400（非数字 / 缺参数）行为均符合预期。课程验证器用 `-Pforage-verifier` 分关跑过：`TaskOne` / `TaskThree` / `TaskFive` 通过，`TaskTwo` / `TaskFour` 是课程设计的死循环（要求人工挂调试器看），这两关起来后消息都正常消费。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
 
 ## [0.2.0] - 2026-11-16
 

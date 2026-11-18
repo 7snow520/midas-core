@@ -82,6 +82,8 @@ spring.json.use.type.headers: false
 ### 11. 失败分支用同一套错误格式
 `/balance` 的 404、400 全部返回 RFC 9457 ProblemDetail（`title` + `detail` + `instance`）：404 是「用户 1 不存在」，400 是「参数 userId 格式不正确」等。调用方一套解析逻辑就能覆盖全部失败分支，不用区分「这个接口 404 是空体、那个接口 400 是默认错误 JSON」。
 
+id 只区分「能不能解析成数字」：能解析但查不到（含 0、负数）统一 404，不为「非正数」单开一条 400 分支——少一个特例，调用方就少一种要处理的错误。
+
 ## 项目结构
 
 ```
@@ -157,10 +159,14 @@ mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印
 - `TransactionRollbackTest`（1 个）：入账命中 0 行时整笔回滚，不会出现「扣了钱、没人收」；
 - `IncentiveServiceTest`（3 个）：激励金额的精度规则——超 4 位小数和负数一律按 0，不静默舍入；
 - `KafkaEndToEndTest`（3 个）：`@EmbeddedKafka` 起真实 broker（不是 mock），验证消息真的被消费并落库、外部裸 JSON 可消费、坏消息不阻塞分区。激励服务用 `@MockBean` 替换，保证 CI 可离线运行；
-- `BalanceControllerTest`（5 个）：`/balance` 的接口契约——200 返余额、查无此人 404（ProblemDetail）、`userId=abc` / `userId=0` / 缺参数都是 400（ProblemDetail）；
+- `BalanceControllerTest`（5 个）：`/balance` 的接口契约——200 返余额、查无此人 404（ProblemDetail，`userId=0` 同样按查无此人处理）、`userId=abc` / 缺参数是 400（ProblemDetail）；
 - `ConcurrentTransferTest`（2 个）：30 线程抢同一账户（只成功 10 笔、账实相等），10 线程投同一个 `txId`（只入账一次，其余返回 `DUPLICATE`）。
 
-`TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建，需要时用 `-Pforage-verifier` 单独跑。
+`TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建。其中 `TaskTwoTests`、`TaskFourTests` 按课程设计就是 `while (true)` 死循环（要求学员挂调试器自己看数据，找到答案后手动终止），放进构建会把构建挂死。
+
+`-Pforage-verifier` 分关跑过的结果：`TaskOneTests`、`TaskThreeTests`、`TaskFiveTests` 通过；`TaskTwoTests` 的裸 JSON 消息全部正常消费、没有一条反序列化报错（被拒原因是这一关还没播种用户，属该关设计）；`TaskFourTests` 期间 39 笔交易正常落库。后两关按设计人工确认。
+
+`TaskFiveTests` 会依次查 `userId` 0~12，其中 0、12 并无此人。为不让这关被 404 打死，`src/test/.../BalanceQuerier` 把 404 适配成「该用户不存在、余额按 0 打印」——只改测试侧客户端，HTTP 语义本身没有改回去。
 
 ## 关于这个仓库
 
