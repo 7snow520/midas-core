@@ -64,11 +64,13 @@ class BalanceControllerTest {
     }
 
     @Test
-    @DisplayName("userId 非正数：返回 400 ProblemDetail")
-    void returnsBadRequestForNonPositiveUserId() throws Exception {
+    @DisplayName("userId=0：同样按查无此人返回 404，不做额外特例")
+    void returnsNotFoundForZeroUserId() throws Exception {
+        when(userRepository.findById(0L)).thenReturn(Optional.empty());
+
         mockMvc.perform(get("/balance").param("userId", "0"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("参数校验失败"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("用户 0 不存在"));
     }
 
     @Test
