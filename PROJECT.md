@@ -6,7 +6,7 @@
 |---|---|---|---|
 | `0.1.0` | 2026-07-15 | Forage 课程版：Kafka 消费 → 三道校验 → 激励 API → 更新余额 → `/balance` | 本人独立完成 |
 | `0.2.0` | 2026-11-16 | 工程加固：金额精度、并发扣款、消息幂等、失败交易留痕、外部调用隔离、死信兜底 | 本人提出需求与取舍，AI 协助生成 |
-| `0.2.1` | 2026-11-18 | 第三轮自查修复：拒绝路径幂等、入账 0 行回滚、txId 改指纹、激励精度对齐 | 本人提出需求与取舍，AI 协助生成 |
+| `0.2.1` | 2026-11-18 | 第三轮自查修复：拒绝路径幂等、入账 0 行回滚、txId 改指纹、激励精度对齐、失败分支统一 ProblemDetail | 本人提出需求与取舍，AI 协助生成 |
 
 逐条改动原因见 [`CHANGELOG.md`](CHANGELOG.md)；设计取舍见 [`README.md`](README.md) 的「关键设计决策」。
 
@@ -44,7 +44,8 @@
 
 ### 4. REST API 开发
 - GET /balance?userId={id} 查询用户余额
-- 用户不存在返回 404，避免与「余额为 0」混淆；非法参数返回 400 ProblemDetail
+- 用户不存在返回 404 + ProblemDetail（detail 指明 userId），避免与「余额为 0」混淆
+- 非法参数（非数字 / 非正数 / 缺参数）返回 400 ProblemDetail，与 404 共用同一套错误格式
 
 ### 5. 自动化测试
 - 26 个自动化测试：
@@ -52,7 +53,7 @@
   - 1 个回滚一致性（TransactionRollbackTest）：入账命中 0 行时扣款一并回滚
   - 3 个激励精度规则（IncentiveServiceTest）：超 4 位小数、负数一律按 0
   - 3 个嵌入式 Kafka 端到端（KafkaEndToEndTest）
-  - 5 个接口契约（BalanceControllerTest）：200 返余额、404 查无此人、400（非数字 / 非正数 / 缺参数）均为 ProblemDetail
+  - 5 个接口契约（BalanceControllerTest）：200 返余额、404（ProblemDetail）、400（非数字 / 非正数 / 缺参数）
   - 2 个并发（ConcurrentTransferTest）
 - 原课程提供的 Task*Tests 为无断言的闯关验证器，默认排除，用 -Pforage-verifier 单独执行
 
