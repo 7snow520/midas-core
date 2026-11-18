@@ -146,7 +146,7 @@ mvn test -Dtest=KafkaEndToEndTest -Dincentive.base-url=http://localhost:18081/in
 ## 测试
 
 ```bash
-mvn test                     # 21 个测试：16 业务/单元 + 3 嵌入式 Kafka 端到端 + 2 并发
+mvn test                     # 26 个测试：21 业务/接口 + 3 嵌入式 Kafka 端到端 + 2 并发
 mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印结果，无断言）
 ```
 
@@ -154,6 +154,7 @@ mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印
 - `TransactionRollbackTest`（1 个）：入账命中 0 行时整笔回滚，不会出现「扣了钱、没人收」；
 - `IncentiveServiceTest`（3 个）：激励金额的精度规则——超 4 位小数和负数一律按 0，不静默舍入；
 - `KafkaEndToEndTest`（3 个）：`@EmbeddedKafka` 起真实 broker（不是 mock），验证消息真的被消费并落库、外部裸 JSON 可消费、坏消息不阻塞分区。激励服务用 `@MockBean` 替换，保证 CI 可离线运行；
+- `BalanceControllerTest`（5 个）：`/balance` 的接口契约——200 返余额、查无此人 404、`userId=abc` / `userId=0` / 缺参数都必须是 400 且为 ProblemDetail 格式；
 - `ConcurrentTransferTest`（2 个）：30 线程抢同一账户（只成功 10 笔、账实相等），10 线程投同一个 `txId`（只入账一次，其余返回 `DUPLICATE`）。
 
 `TaskOneTests`~`TaskFiveTests` 是原课程提供的验证脚本，靠打印日志人工核对、没有断言，因此默认不参与构建，需要时用 `-Pforage-verifier` 单独跑。
@@ -162,7 +163,7 @@ mvn test -Pforage-verifier   # Forage 的 Task*Tests 闯关验证器（仅打印
 
 2026-07 的课程版是我本人独立完成的。2026-11 我在原代码上做了两轮工程加固（`0.2.0` 重构、`0.2.1` 自查修复），逐项原因写在 `CHANGELOG.md`。
 这两轮的代码改动由 AI 助手协助生成，改什么、不改什么、怎么验证由我决定，且都在本机实跑过：
-`mvn verify` 21 个测试、真实 PostgreSQL 14、`@EmbeddedKafka` 真实 broker。
+`mvn verify` 26 个测试、真实 PostgreSQL 14、`@EmbeddedKafka` 真实 broker。
 
 ## 已知限制
 
