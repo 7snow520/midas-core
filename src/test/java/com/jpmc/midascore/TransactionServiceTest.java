@@ -174,4 +174,42 @@ class TransactionServiceTest {
         assertThat(records).hasSize(1);
         assertThat(records.get(0).getFailReason()).contains("4 位小数");
     }
+
+    @Test
+    @DisplayName("重复投递的非法消息：第二次按 DUPLICATE 忽略，而不是撞唯一约束抛异常")
+    void duplicateRejectedMessageIsIgnoredInsteadOfFailing() {
+        assertThat(transactionService.processTransaction(tx("tx-11", alice, bob, "0.12345")))
+                .isEqualTo(TransactionOutcome.INVALID_AMOUNT);
+
+        // 同一条消息重投（Kafka 至少一次投递）：不能再写第二条 FAILED 流水，也不能抛异常
+        assertThat(transactionService.processTransaction(tx("tx-11", alice, bob, "0.12345")))
+                .isEqualTo(TransactionOutcome.DUPLICATE);
+
+        assertThat(transactionRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("txId 超过 64 字符：拒绝，且不会因为截断把两笔不同交易并成一笔")
+    void overlongTxIdIsRejectedWithoutCollision() {
+        String shared = "x".repeat(64);
+        assertThat(transactionService.processTransaction(tx(shared + "A", alice, bob, "10")))
+                .isEqualTo(TransactionOutcome.INVALID_TX_ID);
+        assertThat(transactionService.processTransaction(tx(shared + "B", alice, bob, "10")))
+                .isEqualTo(TransactionOutcome.INVALID_TX_ID);
+
+        // 两条独立的拒绝记录：如果按前 64 位截断，第二条会被误判成重复而丢失
+        assertThat(transactionRepository.findAll()).hasSize(2);
+        assertThat(balanceOf(alice)).isEqualByComparingTo("100");
+    }
+
+    @Test
+    @DisplayName("同一个超长 txId 重投：指纹稳定，第二次判定为重复")
+    void overlongTxIdIsDeterministic() {
+        String longId = "y".repeat(70);
+        assertThat(transactionService.processTransaction(tx(longId, alice, bob, "10")))
+                .isEqualTo(TransactionOutcome.INVALID_TX_ID);
+        assertThat(transactionService.processTransaction(tx(longId, alice, bob, "10")))
+                .isEqualTo(TransactionOutcome.DUPLICATE);
+        assertThat(transactionRepository.findAll()).hasSize(1);
+    }
 }
