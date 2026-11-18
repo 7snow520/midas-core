@@ -24,7 +24,7 @@
 - `docker compose` 拉起的应用改用 prod profile + PostgreSQL（原先 dev/H2，重启就是空库），加了 healthcheck 和 volume。
 
 ### Removed
-- `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io；改用 JDK 自带 API，顺手把这个重依赖删掉。
+- `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io 读文件；改用 JDK 自带 API，顺手把这个重依赖删掉。
 
 ### 验证
 21 个测试（16 业务 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
