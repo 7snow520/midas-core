@@ -13,7 +13,7 @@
 
     <groupId>com.jpmc</groupId>
     <artifactId>midas</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.2.1</version>
     <name>midas</name>
     <description>Midas Core</description>
 

@@ -25,12 +25,13 @@
 - 金额精度常量收敛到 `Money`，业务判定、实体映射、数据库列用同一个值。
 - `/balance` 的 id 校验收敛：不再对「非正数」单开一条 400，能解析成数字但查不到（含 0、负数）统一 404——少一个特例，调用方少一种错误要处理。
 - `docker compose` 拉起的应用改用 prod profile + PostgreSQL（原先 dev/H2，重启就是空库），加了 healthcheck 和 volume。
+- `pom.xml` 的项目版本从 `0.0.1-SNAPSHOT` 改成 `0.2.1`。之前日志写着 0.2.1、打出来的 jar 却叫 `midas-0.0.1-SNAPSHOT.jar`，版本号跟摆设一样。现在日志、文档、产物三处对得上。
 
 ### Removed
 - `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io 读文件；改用 JDK 自带 API，顺手把这个重依赖删掉。
 
 ### 验证
-26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体，`userId=0` 同）、400（非数字 / 缺参数）行为均符合预期。课程验证器用 `-Pforage-verifier` 分关跑过：`TaskOne` / `TaskThree` / `TaskFive` 通过，`TaskTwo` / `TaskFour` 是课程设计的死循环（要求人工挂调试器看），这两关起来后消息都正常消费。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
+26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体，`userId=0` 同）、400（非数字 / 缺参数）行为均符合预期。改完版本号重新打包，产物是 `target/midas-0.2.1.jar`，单独起在 18083 复测了 404 / 400 两个分支。课程验证器用 `-Pforage-verifier` 分关跑过：`TaskOne` / `TaskThree` / `TaskFive` 通过，`TaskTwo` / `TaskFour` 是课程设计的死循环（要求人工挂调试器看），这两关起来后消息都正常消费。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
 
 ## [0.2.0] - 2026-11-16
 
