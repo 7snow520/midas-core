@@ -2,6 +2,8 @@
 
 0.1.0 是 2026-07 的 Forage 课程版，我于 2026-11 在它基础上做了一轮工程加固。这里只记行为变化和关键取舍，实现细节看 commit。
 
+格式遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer 2.0.0](https://semver.org/lang/zh-CN/)：`0.2.0` 是功能加固，进次版本号；`0.2.1` 只修缺陷、不加功能，进修订号。每个版本对应一个 annotated git tag 和一个 GitHub Release，点版本号可直接跳转到发布页；`pom.xml` 的 `<version>`、tag、打出的 jar 名三者一致。版本日期记该版改动定稿的日期，实际发布时刻见 Release 页面。
+
 ## [Unreleased]
 
 （暂无）
@@ -31,7 +33,7 @@
 - `testcontainers` 依赖。它唯一的用处是 `FileLoader` 借了内部 shaded 的 commons-io 读文件；改用 JDK 自带 API，顺手把这个重依赖删掉。
 
 ### 验证
-26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体，`userId=0` 同）、400（非数字 / 缺参数）行为均符合预期。改完版本号重新打包，产物是 `target/midas-0.2.1.jar`，单独起在 18083 复测了 404 / 400 两个分支。课程验证器用 `-Pforage-verifier` 分关跑过：`TaskOne` / `TaskThree` / `TaskFive` 通过，`TaskTwo` / `TaskFour` 是课程设计的死循环（要求人工挂调试器看），这两关起来后消息都正常消费。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
+26 个测试（21 业务/接口 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上全绿，Kafka 用 `@EmbeddedKafka` 起的真 broker。另外把打好的 jar 单独起在 18082 / 18083 跑了一轮接口：`/balance` 的 200、404（带 ProblemDetail 体，`userId=0` 同）、400（非数字 / 缺参数）行为均符合预期。改完版本号重新打包，产物是 `target/midas-0.2.1.jar`，单独起在 18083 复测了 404 / 400 两个分支。课程验证器用 `-Pforage-verifier` 分关跑过：`TaskOne` / `TaskThree` / `TaskFive` 通过，`TaskTwo` / `TaskFour` 是课程设计的死循环（要求人工挂调试器看），这两关起来后消息都正常消费。版本收口：`v0.2.0`（提交 `70aa737`）与 `v0.2.1`（提交 `0e0799b`）已分别打 annotated tag 并发布 GitHub Release，`Latest` 指向 `v0.2.1`，`pom.xml`、tag、jar 名三处对齐。这轮仍没做的：多分区并行消费、长时间压测、Docker 镜像构建。
 
 ## [0.2.0] - 2026-11-16
 
@@ -59,9 +61,13 @@
 ### 验证
 当时 14 个测试（9 业务 + 3 端到端 + 2 并发）在 H2 和真实 PostgreSQL 14 上都跑过；`/balance` 的 200 / 404 / 400 用 curl 实测。没做的也记一笔：Docker 镜像没构建、多分区没测、没做长时间压测。
 
-## [0.1.0] - 2026-07-15
+## 0.1.0 - 2026-07-15
 
-Forage 课程版。
+Forage 课程版，收尾于提交 `e2e0b64`；当时没有打 tag 和 Release，为保留完整对照保留在日志里。
 
 - Kafka 消费交易消息 → 三道校验 → 调用激励 API → 更新余额 → `/balance` 查询
 - 5 个 `Task*Tests`（打印日志人工核对，没有断言）
+
+[Unreleased]: https://github.com/7snow520/midas-core/compare/v0.2.1...main
+[0.2.1]: https://github.com/7snow520/midas-core/releases/tag/v0.2.1
+[0.2.0]: https://github.com/7snow520/midas-core/releases/tag/v0.2.0
